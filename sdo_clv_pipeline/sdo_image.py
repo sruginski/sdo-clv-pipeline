@@ -469,9 +469,9 @@ class SunMask(object):
         structure = ndimage.generate_binary_structure(2,2) # binary structure (rank, connectivity)
         labels, nlabels = ndimage.label(binary_img, structure=structure) # label each island of umbra and penumbra
 
-        # plt.imshow(labels)
-        # plt.colorbar()
-        # # plt.show()
+        plt.imshow(labels)
+        plt.colorbar()
+        plt.show()
 
         # print(np.shape(ind2 | ind3))
 
@@ -491,14 +491,75 @@ class SunMask(object):
         # plt.colorbar()
         # # plt.show()
 
-        # take island with max area
-        max_area = np.max(areas_array) # get the max value in the array
+        # max_area = np.max(areas_array) # get the max value in the array
+        # max_area_idx = areas_array == max_area
+
+
+        # save original array first
+        save_arr = areas_array
+
+        vels = []
+        mags = []
+        ints = []
+        while (len(areas_array) > 0): # while the array is not empty --> change to while there is a non-zero value in the array
+            # take island with max area // set specific area to get
+            max_area = np.max(areas_array) # get the max value in the array
+            max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with specific area
+            plt.imshow(max_area_idx) 
+            plt.colorbar()
+            plt.show()
+            dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)
+            vels.append(avg_vel_arr)
+            print(avg_vel_arr)
+            dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)
+            mags.append(avg_mag_arr)
+            print(avg_mag_arr)
+            dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)
+            ints.append(avg_int_arr)
+            print(avg_int_arr)
+            # remove pixels with max area value --> replace area of pixels with max area value with 0
+            for area in areas_array:
+                if area.any() == max_area:
+                    areas_array[area] = 0
+
+            print(areas_array)
+
+            
+
+        # layered graphs for different moats
+        x = dilation_arr
+        # plot avg velocities / dilations
+        print ("trying to graph...")
+        for i in avg_vel_arr:
+            plt.plot(x, avg_vel_arr)
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Velocity (m/s)")
+        plt.title("Average Velocity vs # of Dilations")
+        plt.show()
         
+        # plot avg magnetic field strength / dilations
+        for j in avg_mag_arr:
+            plt.plot(x, avg_mag_arr)
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Magnetic Field (G)")
+        plt.title("Average Magnetic Field Strength vs # of Dilations")
+        plt.show()
+
+        #plot avg intensity / dilations
+        for k in avg_int_arr:
+            plt.plot(x, avg_int_arr)
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
+        plt.title("Average Intensity vs # of Dilations")
+        plt.show()
+        
+
         # investigating area and how many dilations we expect to go out
         # print(max_area)
         # r = np.sqrt((max_area)/pi)
         # print(r)
 
+        '''
         max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with the max area
         plt.imshow(max_area_idx) 
         plt.colorbar()
@@ -509,6 +570,7 @@ class SunMask(object):
         dilation_arr = []   
         for i in range (1, max_dilations+1):
             dilation_arr.append(i)
+        '''
 
         # velocity/dilations plot
         '''
@@ -794,3 +856,131 @@ class SunMask(object):
 
     def is_plage(self):
         return self.regions == 6
+    
+    def plot_vel(dop, max_area_idx, structure):
+
+        # set-up x axis for dilations plots
+        max_dilations = 50  # how many dilations?
+        dilation_arr = []   
+        for i in range (1, max_dilations+1):
+            dilation_arr.append(i)
+
+        # first dilation
+        dilated_idx = ndimage.binary_dilation(max_area_idx, structure = structure)
+        dilation = np.logical_xor(dilated_idx, max_area_idx) # dilated area - area = only outline left 
+        vel_arr = np.array(dop.v_corr[dilation])
+        avg_vel = np.average(vel_arr)
+        avg_vel_arr = []
+        avg_vel_arr.append(avg_vel)
+        dilation_count = 1
+
+        # y axis
+        prev_dilation = dilated_idx
+        while dilation_count < max_dilations:
+            new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
+            new_dilation = np.logical_xor(new_dilated_idx, prev_dilation)   # new outline, only that ring
+            vel_arr = np.array(dop.v_corr[new_dilation]) 
+            avg_vel = np.average(vel_arr)
+            avg_vel_arr.append(avg_vel)
+            dilation_count += 1 # update dilation count
+            prev_dilation = new_dilated_idx
+
+        # print(dilation_arr) # check that numbers make sense
+        # print(avg_vel_arr)
+        
+        # # plot
+        # x = dilation_arr
+        # y = avg_vel_arr
+        # plt.plot(x,y)
+        # plt.xlabel("# of Dilations")
+        # plt.ylabel("Average Velocity (m/s)")
+        # plt.title("Average Velocity vs # of Dilations")
+        # plt.show()
+
+        return(dilation_arr, avg_vel_arr)
+    
+    def plot_mag(mag, max_area_idx, structure):
+
+        # set-up x axis for dilations plots
+        max_dilations = 50  # how many dilations?
+        dilation_arr = []   
+        for i in range (1, max_dilations+1):
+            dilation_arr.append(i)
+
+        # first dilation
+        dilated_idx = ndimage.binary_dilation(max_area_idx, structure = structure)
+        dilation = np.logical_xor(dilated_idx, max_area_idx) # dilated area - area = only outline left 
+        mag_arr = np.array(mag.image[dilation])
+        avg_mag = np.average(mag_arr)
+        avg_mag_arr = []
+        avg_mag_arr.append(avg_mag)
+        dilation_count = 1
+
+        # y axis
+        prev_dilation = dilated_idx
+        while dilation_count < max_dilations:
+            new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
+            new_dilation = np.logical_xor(new_dilated_idx, prev_dilation)   # new outline, only that ring
+            mag_arr = np.array(mag.image[new_dilation]) 
+            avg_mag = np.average(mag_arr)
+            avg_mag_arr.append(avg_mag)
+            dilation_count += 1 # update dilation count
+            prev_dilation = new_dilated_idx
+
+        # print(dilation_arr) # check that numbers make sense
+        # print(avg_mag_arr)
+        
+        # # plot
+        # x = dilation_arr
+        # y = avg_mag_arr
+        # plt.plot(x,y)
+        # plt.xlabel("# of Dilations")
+        # plt.ylabel("Average Magnetic Field (G)")
+        # plt.title("Average Magnetic Field Strength vs # of Dilations")
+        # plt.show()
+
+        return(dilation_arr, avg_mag_arr)
+    
+    def plot_int(con, max_area_idx, structure):
+        
+        # set-up x axis for dilations plots
+        max_dilations = 50  # how many dilations?
+        dilation_arr = []   
+        for i in range (1, max_dilations+1):
+            dilation_arr.append(i)
+        
+        # first dilation
+        dilated_idx = ndimage.binary_dilation(max_area_idx, structure = structure)
+        dilation = np.logical_xor(dilated_idx, max_area_idx) # dilated area - area = only outline left 
+        int_arr = np.array(con.image[dilation])
+        avg_int = np.average(int_arr)
+        avg_int_arr = []
+        avg_int_arr.append(avg_int)
+        dilation_count = 1
+
+        # y axis
+        prev_dilation = dilated_idx
+        while dilation_count < max_dilations:
+            new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
+            new_dilation = np.logical_xor(new_dilated_idx, prev_dilation)   # new outline, only that ring
+            # new_dilation = np.logical_xor(new_dilated_idx, max_area_idx) # new outline including previous dilations
+            int_arr = np.array(con.image[new_dilation]) 
+            avg_int = np.average(int_arr)
+            avg_int_arr.append(avg_int)
+            dilation_count += 1 # update dilation count
+            prev_dilation = new_dilated_idx
+
+        # print(dilation_arr) # check that numbers make sense
+        # print(avg_int_arr)
+        
+        # # plot
+        # x = dilation_arr
+        # y = avg_int_arr
+        # plt.plot(x,y)
+        # plt.xlabel("# of Dilations")
+        # plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
+        # plt.title("Average Intensity vs # of Dilations")
+        # plt.show()
+
+        return(dilation_arr, avg_int_arr)
+        
