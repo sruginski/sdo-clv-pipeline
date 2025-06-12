@@ -497,10 +497,11 @@ class SunMask(object):
         vels = []
         mags = []
         ints = []
-        # for each label
-            max_area = np.max(areas_array) # get the max value in the array
-            max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with max area
-            plt.imshow(max_area_idx) 
+        for label in labels:
+            # get area of that region
+            max_area = area(label)
+            max_area_idx = areas_array == max_area
+            plt.imshow(label) 
             plt.colorbar()
             plt.show() # visualize that region
             dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)   # x and y values for vel plot
