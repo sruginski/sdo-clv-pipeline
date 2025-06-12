@@ -476,6 +476,76 @@ class SunMask(object):
         labels, nlabels = ndimage.label(binary_img, structure=structure) 
             # takes bright areas and feature connections, gives each island a label
 
+        # find areas (NEW WAY)
+        rprops = regionprops(labels, dop.pix_area)
+        areas_array = np.zeros_like(con.image)             # areas_mic
+        areas_pix = np.zeros_like(con.image)
+        for k in range(1, len(rprops)):
+            areas_array[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area * rprops[k].mean_intensity
+            areas_pix[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area
+
+        # area thresh is 20 microhemispheres
+        area_thresh = 20.0
+
+        # assign region type to plage for ratios less than ratio thresh
+        ind6 = areas_array >= area_thresh  # areas_mic
+        self.regions[ind6] = 6 # plage
+
+        # save original array first
+        save_arr = areas_array
+
+        vels = []
+        mags = []
+        ints = []
+        # for each label
+            max_area = np.max(areas_array) # get the max value in the array
+            max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with max area
+            plt.imshow(max_area_idx) 
+            plt.colorbar()
+            plt.show() # visualize that region
+            dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)   # x and y values for vel plot
+            vels.append(avg_vel_arr)
+            print(avg_vel_arr)
+            dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)  # x and y values for mag plot
+            mags.append(avg_mag_arr)
+            print(avg_mag_arr)
+            dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)  # x and y values for int plot
+            ints.append(avg_int_arr)
+            print(avg_int_arr)
+            # remove pixels with max area value from next search by replacing area of pixels with max area with 0
+                # this part is not working 
+            for area in areas_array:            
+                if area.any() == max_area:
+                    areas_array[area] = 0
+
+            print(areas_array)   # see if those values are now zero
+
+
+        # layered plots for different moats
+        x = dilation_arr
+        # plot avg velocities / dilations
+        print ("trying to plot...")
+        for moat in vels:
+            plt.plot(x, moat)
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Velocity (m/s)")
+        plt.title("Average Velocity vs # of Dilations")
+        plt.show()
+        # plot avg magnetic field strength / dilations
+        for moat in mags:
+            plt.plot(x, moat)
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Magnetic Field (G)")
+        plt.title("Average Magnetic Field Strength vs # of Dilations")
+        plt.show()
+        #plot avg intensity / dilations
+        for moat in ints:
+            plt.plot(x, moat)
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
+        plt.title("Average Intensity vs # of Dilations")
+        plt.show()
+        
 
         """
         # get labeled region areas and perimeters (OLD WAY)
@@ -522,70 +592,16 @@ class SunMask(object):
 
         # max_area = np.max(areas_array) # get the max value in the array
         # max_area_idx = areas_array == max_area
-
-
-        # save original array first
-        save_arr = areas_array
-
-        vels = []
-        mags = []
-        ints = []
-        if np.any(areas_array): # while there is a non-zero value in the array
-            max_area = np.max(areas_array) # get the max value in the array
-            max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with max area
-            plt.imshow(max_area_idx) 
-            plt.colorbar()
-            plt.show() # visualize that region
-            dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)   # x and y values for vel plot
-            vels.append(avg_vel_arr)
-            print(avg_vel_arr)
-            dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)  # x and y values for mag plot
-            mags.append(avg_mag_arr)
-            print(avg_mag_arr)
-            dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)  # x and y values for int plot
-            ints.append(avg_int_arr)
-            print(avg_int_arr)
-            # remove pixels with max area value from next search by replacing area of pixels with max area with 0
-                # this part is not working 
-            for area in areas_array:            
-                if area.any() == max_area:
-                    areas_array[area] = 0
-
-            print(areas_array)   # see if those values are now zero
-
-
-        # layered plots for different moats
-        x = dilation_arr
-        # plot avg velocities / dilations
-        print ("trying to plot...")
-        for moat in avg_vel_arr:
-            plt.plot(x, avg_vel_arr)
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Velocity (m/s)")
-        plt.title("Average Velocity vs # of Dilations")
-        plt.show()
-        # plot avg magnetic field strength / dilations
-        for moat in avg_mag_arr:
-            plt.plot(x, avg_mag_arr)
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Magnetic Field (G)")
-        plt.title("Average Magnetic Field Strength vs # of Dilations")
-        plt.show()
-        #plot avg intensity / dilations
-        for moat in avg_int_arr:
-            plt.plot(x, avg_int_arr)
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
-        plt.title("Average Intensity vs # of Dilations")
-        plt.show()
-        
+        '''
 
         # investigating area and how many dilations we expect to go out
         # print(max_area)
         # r = np.sqrt((max_area)/pi)
         # print(r)
 
-        '''
+        """
+
+        """
         max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with the max area
         plt.imshow(max_area_idx) 
         plt.colorbar()
@@ -849,24 +865,11 @@ class SunMask(object):
         self.regions[ind_iso] = 4 # quiet sun
         """
 
-        # find areas (NEW WAY)
-        rprops = regionprops(labels, dop.pix_area)
-        areas_mic = np.zeros_like(con.image)
-        areas_pix = np.zeros_like(con.image)
-        for k in range(1, len(rprops)):
-            areas_mic[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area * rprops[k].mean_intensity
-            areas_pix[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area
-
-        # area thresh is 20 microhemispheres
-        area_thresh = 20.0
-
-        # assign region type to plage for ratios less than ratio thresh
-        ind6 = areas_mic >= area_thresh
-        self.regions[ind6] = 6 # plage
 
         # set isolated bright pixels to quiet sun
         ind_iso = areas_pix == 1.0
         self.regions[ind_iso] = 4 # quiet sun
+
 
         # make any remaining unclassified pixels quiet sun
         ind_rem = ((con.mu >= con.mu_thresh) & (self.regions == 0))
