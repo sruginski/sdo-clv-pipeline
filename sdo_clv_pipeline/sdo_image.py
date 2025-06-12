@@ -478,48 +478,66 @@ class SunMask(object):
 
         # find areas (NEW WAY)
         rprops = regionprops(labels, dop.pix_area)
-        areas_array = np.zeros_like(con.image)             # areas_mic
-        areas_pix = np.zeros_like(con.image)
+        areas_mic = np.zeros_like(con.image)             # areas_mic
+        areas_pix = np.zeros_like(con.image)            # areas_pix 
         for k in range(1, len(rprops)):
-            areas_array[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area * rprops[k].mean_intensity
+            areas_mic[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area * rprops[k].mean_intensity
             areas_pix[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area
 
         # area thresh is 20 microhemispheres
         area_thresh = 20.0
 
         # assign region type to plage for ratios less than ratio thresh
-        ind6 = areas_array >= area_thresh  # areas_mic
+        ind6 = areas_mic >= area_thresh  # areas_mic
         self.regions[ind6] = 6 # plage
 
-        # save original array first
-        save_arr = areas_array
+        # label each penumbra island and include umbra so we only expand outwards
+        binary_img = (self.regions == 2) | (self.regions == 3)|(self.regions == 1) # get penumbra and umbra 
+        structure = ndimage.generate_binary_structure(2,2) # binary structure (rank, connectivity)
+        labels, nlabels = ndimage.label(binary_img, structure=structure) # label each island of umbra and penumbra
 
+        plt.imshow(labels)
+        plt.colorbar()
+        plt.show()
+
+        # get labeled region areas and perimeters for umbra and penumbra
+                # find areas (NEW WAY)
+        rprops = regionprops(labels, dop.pix_area)
+        areas_mic = np.zeros_like(con.image)             # areas_mic
+        areas_pix = np.zeros_like(con.image)            # areas_pix 
+        for k in range(1, len(rprops)):
+            areas_mic[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area * rprops[k].mean_intensity
+            areas_pix[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area
+
+
+        # save original array first
+        save_arr = areas_pix
+
+        # set up list of lists for layered plot
         vels = []
         mags = []
         ints = []
-        for label in labels:
-            # get area of that region
-            max_area = area(label)
-            max_area_idx = areas_array == max_area
-            plt.imshow(label) 
-            plt.colorbar()
-            plt.show() # visualize that region
-            dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)   # x and y values for vel plot
-            vels.append(avg_vel_arr)
-            print(avg_vel_arr)
-            dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)  # x and y values for mag plot
-            mags.append(avg_mag_arr)
-            print(avg_mag_arr)
-            dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)  # x and y values for int plot
-            ints.append(avg_int_arr)
-            print(avg_int_arr)
-            # remove pixels with max area value from next search by replacing area of pixels with max area with 0
-                # this part is not working 
-            for area in areas_array:            
-                if area.any() == max_area:
-                    areas_array[area] = 0
+        region = 0
 
-            print(areas_array)   # see if those values are now zero
+        for rprop in rprops:
+            # get area of that region              
+            max_area = rprop.area                 
+            if (max_area > 5000):
+                print(max_area)
+                # get pixels in that region
+                max_area_idx = areas_pix == max_area    
+                plt.imshow(max_area_idx) 
+                plt.colorbar()
+                plt.show() # visualize that region
+                dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)  # x and y values for layered vel plot
+                vels.append(avg_vel_arr)
+                print(avg_vel_arr)
+                dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)  # x and y values for layered mag plot
+                mags.append(avg_mag_arr)
+                print(avg_mag_arr)
+                dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)  # x and y values for layered int plot
+                ints.append(avg_int_arr)
+                print(avg_int_arr)
 
 
         # layered plots for different moats
@@ -528,6 +546,7 @@ class SunMask(object):
         print ("trying to plot...")
         for moat in vels:
             plt.plot(x, moat)
+        plt.legend()
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Velocity (m/s)")
         plt.title("Average Velocity vs # of Dilations")
@@ -535,6 +554,7 @@ class SunMask(object):
         # plot avg magnetic field strength / dilations
         for moat in mags:
             plt.plot(x, moat)
+        plt.legend()
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Magnetic Field (G)")
         plt.title("Average Magnetic Field Strength vs # of Dilations")
@@ -542,6 +562,7 @@ class SunMask(object):
         #plot avg intensity / dilations
         for moat in ints:
             plt.plot(x, moat)
+        plt.legend()
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
         plt.title("Average Intensity vs # of Dilations")
