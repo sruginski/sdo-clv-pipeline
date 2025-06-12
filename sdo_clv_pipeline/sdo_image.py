@@ -501,52 +501,49 @@ class SunMask(object):
         vels = []
         mags = []
         ints = []
-        while (len(areas_array) > 0): # while the array is not empty --> change to while there is a non-zero value in the array
-            # take island with max area // set specific area to get
+        if np.any(areas_array): # while there is a non-zero value in the array
             max_area = np.max(areas_array) # get the max value in the array
-            max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with specific area
+            max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with max area
             plt.imshow(max_area_idx) 
             plt.colorbar()
-            plt.show()
-            dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)
+            plt.show() # visualize that region
+            dilation_arr, avg_vel_arr = SunMask.plot_vel(dop, max_area_idx, structure)   # x and y values for vel plot
             vels.append(avg_vel_arr)
             print(avg_vel_arr)
-            dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)
+            dilation_arr, avg_mag_arr = SunMask.plot_mag(mag, max_area_idx, structure)  # x and y values for mag plot
             mags.append(avg_mag_arr)
             print(avg_mag_arr)
-            dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)
+            dilation_arr, avg_int_arr = SunMask.plot_int(con, max_area_idx, structure)  # x and y values for int plot
             ints.append(avg_int_arr)
             print(avg_int_arr)
-            # remove pixels with max area value --> replace area of pixels with max area value with 0
-            for area in areas_array:
+            # remove pixels with max area value from next search by replacing area of pixels with max area with 0
+                # this part is not working 
+            for area in areas_array:            
                 if area.any() == max_area:
                     areas_array[area] = 0
 
-            print(areas_array)
+            print(areas_array)   # see if those values are now zero
 
-            
 
-        # layered graphs for different moats
+        # layered plots for different moats
         x = dilation_arr
         # plot avg velocities / dilations
-        print ("trying to graph...")
-        for i in avg_vel_arr:
+        print ("trying to plot...")
+        for moat in avg_vel_arr:
             plt.plot(x, avg_vel_arr)
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Velocity (m/s)")
         plt.title("Average Velocity vs # of Dilations")
         plt.show()
-        
         # plot avg magnetic field strength / dilations
-        for j in avg_mag_arr:
+        for moat in avg_mag_arr:
             plt.plot(x, avg_mag_arr)
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Magnetic Field (G)")
         plt.title("Average Magnetic Field Strength vs # of Dilations")
         plt.show()
-
         #plot avg intensity / dilations
-        for k in avg_int_arr:
+        for moat in avg_int_arr:
             plt.plot(x, avg_int_arr)
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
