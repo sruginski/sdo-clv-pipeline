@@ -45,14 +45,16 @@ def plot_image(sdo_image, outdir=None, fname=None):
         # ax1.text(1400, 4000, sdo_image.date_obs, fontsize=10, c="black")
         ax1.grid(False)
 
-        # figure out the filename
-        if outdir is None:
-            plt.show()
-        else:
+
+        if outdir is not None:
             if fname is None:
                 fname = "mag_" + sdo_image.date_obs + ".pdf"
             fig.savefig(outdir + fname, bbox_inches="tight", dpi=500)
             plt.clf(); plt.close()
+
+        else:
+            plt.show()
+
         return None
 
     elif sdo_image.is_dopplergram():
@@ -75,13 +77,17 @@ def plot_image(sdo_image, outdir=None, fname=None):
         ax1.grid(False)
 
         # figure out the filename
-        if outdir is None:
-            plt.show()
-        else:
+
+        if outdir is not None:
+
             if fname is None:
                 fname = "dop_" + sdo_image.date_obs + ".pdf"
             fig.savefig(outdir + fname, bbox_inches="tight", dpi=500)
             plt.clf(); plt.close()
+
+        else:
+            plt.show()
+
         return None
 
     elif sdo_image.is_continuum():
@@ -108,13 +114,13 @@ def plot_image(sdo_image, outdir=None, fname=None):
         ax1.grid(False)
 
         # figure out the filename
-        if outdir is None:
-            plt.show()
-        else:
+        if outdir is not None:
             if fname is None:
                 fname = "con_" + sdo_image.date_obs + ".pdf"
             fig.savefig(outdir + fname, bbox_inches="tight", dpi=500)
             plt.clf(); plt.close()
+        else:
+            plt.show()
         return None
 
     elif sdo_image.is_filtergram():
@@ -137,23 +143,22 @@ def plot_image(sdo_image, outdir=None, fname=None):
         ax1.grid(False)
 
         # figure out the filename
-        if outdir is None:
-            plt.show()
-        else:
+        if outdir is not None:
             if fname is None:
                 fname = "aia_" + sdo_image.date_obs + ".pdf"
             fig.savefig(outdir + fname, bbox_inches="tight", dpi=500)
             plt.clf(); plt.close()
+        else:
+            plt.show()
         return None
-
+    
     else:
         return None
 
 def plot_mask(mask, outdir=None, fname=None):
-    # assert outdir is not None
-
     # merge the penumbra
-    mask.regions[mask.regions >= 3] -= 1
+    mask_copy = np.copy(mask.regions)
+    mask_copy[mask_copy >= 3] -= 1
 
     # get cmap
     cmap = colors.ListedColormap(["black", "saddlebrown", "orange", "yellow", "white"])
@@ -166,7 +171,7 @@ def plot_mask(mask, outdir=None, fname=None):
     # plot the sun
     fig = plt.figure(figsize=(6.4, 4.8))
     ax1 = fig.add_subplot(111, projection=wcs)
-    img = ax1.imshow(mask.regions - 0.5, cmap=cmap, norm=norm, origin="lower", interpolation=None)
+    img = ax1.imshow(mask_copy - 0.5, cmap=cmap, norm=norm, origin="lower", interpolation=None)
     sp.visualization.wcsaxes_compat.wcsaxes_heliographic_overlay(ax1, grid_spacing=15*u.deg, annotate=True,
                                                                  color="k", alpha=0.5, ls="--", lw=0.5)
     limb = ax1.contour(mask.mu >= 0.0, colors="k", linestyles="--", linewidths=0.5, alpha=0.5)
@@ -180,11 +185,11 @@ def plot_mask(mask, outdir=None, fname=None):
     ax1.grid(False)
 
     # figure out the filename
-    if outdir is None:
-        plt.show()
-    else:
+    if outdir is not None:
         if fname is None:
             fname = "mask_" + mask.date_obs + ".pdf"
         fig.savefig(outdir + fname, bbox_inches="tight", dpi=500)
         plt.clf(); plt.close()
+    else:
+        plt.show()
     return None

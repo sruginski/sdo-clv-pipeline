@@ -10,25 +10,26 @@ from sunpy.coordinates import frames
 from scipy import ndimage
 from astropy.wcs import WCS
 from scipy.optimize import curve_fit
-from reproject import reproject_interp
 from skimage.measure import regionprops
 from astropy.wcs import FITSFixedWarning
 from astropy.io.fits.verify import VerifyWarning
+from astropy.wcs.utils import proj_plane_pixel_scales
 
 from .sdo_io import *
 from .limbdark import *
 from .legendre import *
+from .reproject import *
 
 warnings.simplefilter("ignore", category=VerifyWarning)
 warnings.simplefilter("ignore", category=FITSFixedWarning)
 
 class SDOImage(object):
-    def __init__(self, file):
+    def __init__(self, file, dtype=np.float32):
         # set the filename
         self.filename = file
 
         # get the image and the header
-        self.image = read_data(self.filename)
+        self.image = read_data(self.filename, dtype=dtype)
         self.parse_header()
 
         # initialize mu_thresh
@@ -86,25 +87,28 @@ class SDOImage(object):
         paxis1 = np.arange(self.naxis1)
         paxis2 = np.arange(self.naxis2)
         xx, yy = np.meshgrid(paxis1, paxis2)
-        self.hpc = smap.pixel_to_world(xx * u.pix, yy * u.pix)   # helioprojective cartesian
+        hpc = smap.pixel_to_world(xx * u.pix, yy * u.pix)   # helioprojective cartesian
         self.rsun_solrad = self.dsun_obs/self.rsun_ref
 
         # transform to other coordinate systems
-        hgs = self.hpc.transform_to(frames.HeliographicStonyhurst)
-        hcc = self.hpc.transform_to(frames.Heliocentric)
+        hgs = hpc.transform_to(frames.HeliographicStonyhurst)
+        hcc = hpc.transform_to(frames.Heliocentric)
 
         # get cartesian and radial coordinates
         self.xx = hcc.x
         self.yy = hcc.y
-        self.rr = np.sqrt(self.hpc.Tx**2 + self.hpc.Ty**2) / (self.rsun_obs * u.arcsec)
+        self.rr = np.sqrt(hpc.Tx**2 + hpc.Ty**2) / (self.rsun_obs * u.arcsec)
 
         # heliocgraphic latitude and longitude
         self.lat = hgs.lat + 90 * u.deg
         self.lon = hgs.lon
 
+        # calculate the pixel areas
+        self.pix_area = calculate_pixel_area(self.lat, self.lon)
+
         # get mu
         mask = self.rr <= 1.0
-        self.mu = np.zeros((4096, 4096))
+        self.mu = np.zeros_like(self.image)
         self.mu[mask] = np.sqrt(1.0 - self.rr.value[mask]**2.0)
         self.mu[~mask] = np.nan
         return None
@@ -114,6 +118,7 @@ class SDOImage(object):
         # self.yy = np.copy(other_image.yy)
         # self.rr = np.copy(other_image.rr)
         self.mu = np.copy(other_image.mu)
+        self.pix_area = np.copy(other_image.pix_area)
         # self.lat = np.copy(other_image.lat)
         # self.lon = np.copy(other_image.lon)
         return None
@@ -137,6 +142,15 @@ class SDOImage(object):
         if self.is_continuum() | self.is_filtergram():
             self.ldark[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
             self.iflat[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+        elif self.is_magnetogram():
+            self.B_obs[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+        elif self.is_dopplergram():
+            self.v_corr[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+            self.v_obs[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+            self.v_rot[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+            self.v_mer[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+            self.v_cbs[np.logical_or(self.mu < mu_thresh, np.isnan(self.mu))] = np.nan
+
         return None
 
     def correct_magnetogram(self):
@@ -150,6 +164,7 @@ class SDOImage(object):
 
         # get mask excluding nans / sqrts of negatives
         # self.mask_nan = np.logical_and((self.rr <= 0.95), ~np.isnan(self.lat))
+        # self.mask_nan = np.logical_and((self.mu >= 0.1), ~np.isnan(self.image))
         self.mask_nan = (self.mu >= 0.1)
 
         # velocity components
@@ -177,7 +192,7 @@ class SDOImage(object):
         vr3 = -self.obs_vn * sin_sig * cos_chi
 
         # reshape into 4096 x 4096 array
-        self.v_obs = np.zeros((4096, 4096))
+        self.v_obs = np.zeros_like(self.image)
         self.v_obs[self.mask_nan] = -(vr1 + vr2 + vr3)[self.mask_nan]
         self.v_obs[~self.mask_nan] = np.nan
         return None
@@ -204,13 +219,11 @@ class SDOImage(object):
         self.lp = cos_B0 * sin_phi
 
         # calculate legendre poylnomials
-        # print(">>> Generating ~Legendre~ Polynomials", flush=True)
-        pl_theta, dt_pl_theta = gen_leg(5, self.lat_mask)
+        pl_theta, dt_pl_theta = gen_leg_vec(5, self.lat_mask)
         if fit_cbs:
-            pl_rho, dt_pl_rho = gen_leg_x(5, self.rho_mask)
+            pl_rho, dt_pl_rho = gen_leg_x_vec(5, self.rho_mask)
         else:
-            pl_rho, dt_pl_rho = gen_leg_x(0, self.rho_mask)
-        # print(">>> Done generating ~Legendre~ Polynomials", flush=True)
+            pl_rho, dt_pl_rho = gen_leg_x_vec(0, self.rho_mask)
 
         # figure out how many polynomials we need
         if fit_cbs:
@@ -245,34 +258,28 @@ class SDOImage(object):
         self.dat = (self.image - self.v_obs - self.v_grav)[self.mask_nan].copy()
         self.RHS = self.im_arr.dot(self.dat)
 
-        # fill the matrix
-        A = np.zeros((n_poly, n_poly))
-        for i in range(n_poly):
-            for j in range(n_poly):
-                A[i, j] = self.im_arr[i, :].dot(self.im_arr[j, :])
-
-        # invert and compute fit params
-        Ainv = inv_SVD(A, 1e5)
-        self.fit_params = Ainv.dot(self.RHS)
+        # fill the matrix and compute fit params
+        A = self.im_arr @ self.im_arr.T
+        self.fit_params = np.linalg.solve(A, self.RHS)
 
         # get rotation component
-        self.v_rot = np.zeros((4096, 4096))
+        self.v_rot = np.zeros_like(self.image)
         self.v_rot[self.mask_nan] = self.fit_params[:3].dot(self.im_arr[:3, :])
         self.v_rot[~self.mask_nan] = np.nan
 
         # get meridional circulation component
-        self.v_mer = np.zeros((4096, 4096))
+        self.v_mer = np.zeros_like(self.image)
         self.v_mer[self.mask_nan] = self.fit_params[3:5].dot(self.im_arr[3:5, :])
         self.v_mer[~self.mask_nan] = np.nan
 
         # get convective blueshift w/ limb component
-        self.v_cbs = np.zeros((4096, 4096))
+        self.v_cbs = np.zeros_like(self.image)
         self.v_cbs[self.mask_nan] = self.fit_params[5:].dot(self.im_arr[5:, :])
         self.v_cbs[~self.mask_nan] = np.nan
 
         # get corrected velocity
         self.dat -= self.fit_params.dot(self.im_arr)
-        self.v_corr = np.zeros((4096, 4096))
+        self.v_corr = np.zeros_like(self.image)
         self.v_corr[self.mask_nan] = self.dat
         self.v_corr[~self.mask_nan] = np.nan
         return None
@@ -313,11 +320,16 @@ class SDOImage(object):
     def rescale_to_hmi(self, hmi_image):
         assert self.is_filtergram()
 
-        # rescale the image
-        self.image = reproject_interp((self.image, self.head), hmi_image.head,
-                                      return_footprint=False)
+        # compute pixel mapping 
+        H, W = hmi_image.image.shape
+        src_x, src_y = compute_pixel_mapping(self.wcs, hmi_image.wcs, (H, W))
 
-        # borrow the geometry now that the images are aligned
+        # do the interpolation (bilinear)
+        dst = np.empty((H, W), dtype=np.float32)
+        bilinear_reproject(self.image, src_x, src_y, dst)
+
+        # set attributes
+        self.image = dst
         self.inherit_geometry(hmi_image)
         self.wcs = hmi_image.wcs
 
@@ -338,6 +350,21 @@ def calculate_weights(mag):
     w_quiet = ~w_active
     w_quiet[np.logical_or(mag.mu < mag.mu_thresh, np.isnan(mag.mu))] = False
     return w_active, w_quiet
+
+def calculate_pixel_area(lat, lon):
+    # convert to radians
+    lat_rad = lat.value * np.pi / 180.0
+    lon_rad = lon.value * np.pi / 180.0
+    d_lat = np.diff(lat_rad, 1, 0)
+    d_lon = np.diff(lon_rad, 1, 1)
+
+    # pad the edge
+    d_lat2 = np.pad(d_lat, ((0, 1), (0, 0)), mode="constant")
+    d_lon2 = np.pad(d_lon, ((0, 0), (0, 1)), mode="constant")
+    
+    # compute the areas of pixels
+    pix_area = np.sin(lat_rad) * np.abs(d_lon2) * np.abs(d_lat2) / (2 * np.pi) * 1e6
+    return pix_area
 
 class SunMask(object):
     def __init__(self, con, mag, dop, aia):
@@ -386,7 +413,7 @@ class SunMask(object):
 
     def identify_regions(self, con, mag, dop, aia):
         # allocate memory for mask array
-        self.regions = np.zeros(np.shape(con.image))
+        self.regions = np.zeros_like(con.image)
 
         # calculate intensity thresholds for HMI
         self.con_thresh1 = 0.89 * np.nansum(con.iflat * self.w_quiet)/np.nansum(self.w_quiet)
@@ -403,7 +430,8 @@ class SunMask(object):
             ind3 = indp & (dop.v_corr > 0)     # if penumbra and redshift, ind3
         else: # no attribute v_corr
             ind2 = indp
-            ind3 = indp
+
+            ind3 = np.zeros_like(indp)
 
         """
         # find contiguous penumbra regions
@@ -448,10 +476,11 @@ class SunMask(object):
         labels, nlabels = ndimage.label(binary_img, structure=structure) 
             # takes bright areas and feature connections, gives each island a label
 
-        # get labeled region areas and perimeters for bright areas
-        rprops = regionprops(labels) # get the list of labels
-        areas = np.array([rprop.area for rprop in rprops]).astype(float)    
-            # for each label in list, get area as float (pixels) and put that in array
+
+        """
+        # get labeled region areas and perimeters (OLD WAY)
+        rprops = regionprops(labels)
+        areas = np.array([rprop.area for rprop in rprops]).astype(float)
         areas *= (1e6/np.sum(self.mu > 0.0)) # convert to microhemispheres
         perims = np.array([rprop.perimeter for rprop in rprops]).astype(float) # for each island, get perimeter as float
 
@@ -818,6 +847,26 @@ class SunMask(object):
         # set isolated bright pixels to quiet sun
         ind_iso = np.concatenate(([False], areas == 1))[labels]
         self.regions[ind_iso] = 4 # quiet sun
+        """
+
+        # find areas (NEW WAY)
+        rprops = regionprops(labels, dop.pix_area)
+        areas_mic = np.zeros_like(con.image)
+        areas_pix = np.zeros_like(con.image)
+        for k in range(1, len(rprops)):
+            areas_mic[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area * rprops[k].mean_intensity
+            areas_pix[rprops[k].coords[:, 0], rprops[k].coords[:, 1]] = rprops[k].area
+
+        # area thresh is 20 microhemispheres
+        area_thresh = 20.0
+
+        # assign region type to plage for ratios less than ratio thresh
+        ind6 = areas_mic >= area_thresh
+        self.regions[ind6] = 6 # plage
+
+        # set isolated bright pixels to quiet sun
+        ind_iso = areas_pix == 1.0
+        self.regions[ind_iso] = 4 # quiet sun
 
         # make any remaining unclassified pixels quiet sun
         ind_rem = ((con.mu >= con.mu_thresh) & (self.regions == 0))
@@ -825,7 +874,6 @@ class SunMask(object):
 
         # set values beyond mu_thresh to nan
         self.regions[np.logical_or(con.mu <= con.mu_thresh, np.isnan(con.mu))] = np.nan
-
         return None
 
     def mask_low_mu(self, mu_thresh):

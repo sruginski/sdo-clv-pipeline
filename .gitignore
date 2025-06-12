@@ -12,3 +12,4 @@ figures/*
 # other
 __pycache__
 sftp-config.json
+uv.lock
