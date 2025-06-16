@@ -491,6 +491,8 @@ class SunMask(object):
         ind6 = areas_mic >= area_thresh  # areas_mic
         self.regions[ind6] = 6 # plage
 
+        ### plotting ####
+
         # label each penumbra island and include umbra so we only expand outwards
         binary_img = (self.regions == 2) | (self.regions == 3)|(self.regions == 1) # get penumbra and umbra 
         structure = ndimage.generate_binary_structure(2,2) # binary structure (rank, connectivity)
@@ -520,7 +522,6 @@ class SunMask(object):
         areas = []
         mus =[]
         moats = []
-        region = 0
 
         for rprop in rprops:
             # get area of that region              
@@ -560,40 +561,91 @@ class SunMask(object):
                 moats.append(mus)   # 4
                 
 
-
+        import matplotlib.cm as cm
         # layered plots for different moats
         x = dilation_arr
         
-        # plot avg velocities / dilations
+        # plot avg velocities / dilations, mu
         print ("trying to plot...")
-        i = 0
-        while (i < len(vels)):
-            labels = f"{moats[3][i]} {moats[4][i]:.3f}"
-            plt.plot(x, moats[0][i], label= labels)
-            i += 1
-        plt.legend()
+        cmap = cm.plasma
+        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        for i in range (0, len(mus)):
+            color = cmap(norm(i))
+            plt.plot(x, moats[0][i], color = color)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])
+        plt.colorbar(sm, label='mu', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Velocity (m/s)")
         plt.title("Average Velocity vs # of Dilations")
         plt.show()
-        # plot avg magnetic field strength / dilations
-        i = 0
-        while (i < len(mags)):
-            labels = f"{moats[3][i]} {moats[4][i]:.3f}"
-            plt.plot(x, moats[1][i], label = labels)
-            i += 1
-        plt.legend()
+
+        # plot avg velocities / dilations, area
+        print ("trying to plot...")
+        cmap = cm.plasma
+        norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
+        for i in range (0, len(areas)):
+            color = cmap(norm(i))
+            plt.plot(x, moats[0][i], color = color)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])
+        plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Velocity (m/s)")
+        plt.title("Average Velocity vs # of Dilations")
+        plt.show()
+
+        # plot avg magnetic field strength / dilations, mu
+        cmap = cm.plasma
+        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        for i in range (0, len(mus)):
+            color = cmap(norm(i))
+            plt.plot(x, moats[1][i], color = color)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])
+        plt.colorbar(sm, label='mu', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Magnetic Field (G)")
         plt.title("Average Magnetic Field Strength vs # of Dilations")
         plt.show()
-        #plot avg intensity / dilations
-        i = 0
-        while (i < len(ints)):
-            labels = f"{moats[3][i]} {moats[4][i]:.3f}"
-            plt.plot(x, moats[2][i], label = labels)
-            i += 1
-        plt.legend()
+
+        # plot avg magnetic field strength / dilations, area
+        cmap = cm.plasma
+        norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
+        for i in range (0, len(areas)):
+            color = cmap(norm(i))
+            plt.plot(x, moats[1][i], color = color)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])
+        plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Magnetic Field (G)")
+        plt.title("Average Magnetic Field Strength vs # of Dilations")
+        plt.show()
+
+        #plot avg intensity / dilations, mu
+        cmap = cm.plasma
+        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        for i in range (0, len(mus)):
+            color = cmap(norm(i))
+            plt.plot(x, moats[2][i], color = color)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])
+        plt.colorbar(sm, label='mu', ax=plt.gca())
+        plt.xlabel("# of Dilations")
+        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
+        plt.title("Average Intensity vs # of Dilations")
+        plt.show()
+
+        #plot avg intensity / dilations, area
+        cmap = cm.plasma
+        norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
+        for i in range (0, len(areas)):
+            color = cmap(norm(i))
+            plt.plot(x, moats[2][i], color = color)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])
+        plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
         plt.title("Average Intensity vs # of Dilations")
@@ -911,7 +963,7 @@ class SunMask(object):
         prev_dilation = dilated_idx
         while dilation_count < max_dilations:
             new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
-            idx_new = np.logical_and(new_dilated_idx, self.regions != 2)
+            idx_new = np.logical_and(new_dilated_idx, self.regions != 2)   
             idx_new = np.logical_and(idx_new, self.regions != 1)
             new_dilation = np.logical_xor(new_dilated_idx, prev_dilation)   # new outline, only that ring
             # new_dilation = np.logical_xor(new_dilated_idx, max_area_idx) # new outline including previous dilations
