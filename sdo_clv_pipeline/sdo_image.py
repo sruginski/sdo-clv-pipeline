@@ -526,7 +526,7 @@ class SunMask(object):
         for rprop in rprops:
             # get area of that region              
             max_area = rprop.area                 
-            if (max_area > 600):
+            if (max_area > 4000):
                 print(max_area)
                 # get pixels in that region
                 max_area_idx = areas_pix == max_area
@@ -568,6 +568,8 @@ class SunMask(object):
         # plot avg velocities / dilations, mu
         print ("trying to plot...")
         cmap = cm.plasma
+        for i in mus:
+            i = np.log(i)
         norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
         for i in range (0, len(mus)):
             color = cmap(norm(i))
@@ -581,8 +583,9 @@ class SunMask(object):
         plt.show()
 
         # plot avg velocities / dilations, area
-        print ("trying to plot...")
         cmap = cm.plasma
+        for i in areas:
+            i = (i*i)
         norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
         for i in range (0, len(areas)):
             color = cmap(norm(i))
