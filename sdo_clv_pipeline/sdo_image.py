@@ -570,7 +570,7 @@ class SunMask(object):
         cmap = cm.plasma
         for i in mus:
             i = np.log(i)
-        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        norm = colors.Normalize(vmin=np.0.981, vmax=np.max(mus))
         for i in range (0, len(mus)):
             color = cmap(norm(i))
             plt.plot(x, moats[0][i], color = color)
@@ -585,7 +585,7 @@ class SunMask(object):
         # plot avg velocities / dilations, area
         cmap = cm.plasma
         for i in areas:
-            i = (i*i)
+            i = (i*i*i)
         norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
         for i in range (0, len(areas)):
             color = cmap(norm(i))
