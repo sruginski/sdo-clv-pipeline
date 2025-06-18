@@ -526,7 +526,7 @@ class SunMask(object):
         for rprop in rprops:
             # get area of that region              
             max_area = rprop.area                 
-            if (max_area > 3000):
+            if (max_area > 6000):
                 print(max_area)
                 # get pixels in that region
                 max_area_idx = areas_pix == max_area
@@ -540,6 +540,7 @@ class SunMask(object):
                 # don't double count
                 idx_new = np.logical_and(max_area_idx, self.regions != 2)
                 idx_new = np.logical_and(idx_new, self.regions != 1)
+
 
                 # plt.imshow(idx_new) 
                 # plt.colorbar()
@@ -558,22 +559,34 @@ class SunMask(object):
                 moats.append(ints)  # 2 
                 moats.append(areas) # 3
                 moats.append(mus)   # 4
-                
 
-        import matplotlib.cm as cm
-        # layered plots for different moats
         x = dilation_arr
-        
-        # plot avg velocities / dilations, mu
+        np.savez('moats_data.npz', x=x, vels=vels, mags=mags, ints=ints, areas=areas, mus=mus, moats=moats)
+
+        from plot_moats_data import load_and_plot
+        load_and_plot('moats_data.npz')
+
+        """
+        import matplotlib.cm as cm
         print ("trying to plot...")
+        # layered plots for different moats
+        thetas = []
+        # plot avg velocities / dilations, mu
+        for i in mus:
+            i = np.arccos(i)
+            thetas.append(i)
         cmap = cm.plasma
-        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        norm = colors.Normalize(vmin=min(thetas), vmax=np.max(thetas))
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])
-        for i in range (0, len(mus)):
-            color = cmap(norm(mus[i]))
+        for i in range (0, len(thetas)):
+            color = cmap(norm(thetas[i]))
             plt.plot(x, moats[0][i], color = color)
-        plt.colorbar(sm, label='mu', ax=plt.gca())
+            # marker
+            mark_dilation = np.sqrt(areas[i] / np.pi)
+            vel_at_mark = np.interp(mark_dilation, x, moats[0][i])
+            plt.plot(mark_dilation, vel_at_mark, marker='o', color=color, markersize=7)
+        plt.colorbar(sm, label='Average Theta (rad)', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Velocity (m/s)")
         plt.title("Average Velocity vs # of Dilations")
@@ -581,27 +594,35 @@ class SunMask(object):
 
         # plot avg velocities / dilations, area
         cmap = cm.plasma
-        norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
+        norm = colors.Normalize(vmin=min(areas), vmax=np.max(areas))
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])
         for i in range (0, len(areas)):
             color = cmap(norm(areas[i]))
             plt.plot(x, moats[0][i], color = color)
+            # marker
+            mark_dilation = np.sqrt(areas[i] / np.pi)
+            vel_at_mark = np.interp(mark_dilation, x, moats[0][i])
+            plt.plot(mark_dilation, vel_at_mark, marker='o', color=color, markersize=7)
         plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Velocity (m/s)")
         plt.title("Average Velocity vs # of Dilations")
         plt.show()
-
+ 
         # plot avg magnetic field strength / dilations, mu
         cmap = cm.plasma
-        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        norm = colors.Normalize(vmin=min(thetas), vmax=np.max(thetas))
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])
-        for i in range (0, len(mus)):
-            color = cmap(norm(mus[i]))
+        for i in range (0, len(thetas)):
+            color = cmap(norm(thetas[i]))
             plt.plot(x, moats[1][i], color = color)
-        plt.colorbar(sm, label='mu', ax=plt.gca())
+            # marker
+            mark_dilation = np.sqrt(areas[i] / np.pi)
+            mag_at_mark = np.interp(mark_dilation, x, moats[1][i])
+            plt.plot(mark_dilation, mag_at_mark, marker='o', color=color, markersize=7)
+        plt.colorbar(sm, label='Average Theta (rad)', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Magnetic Field (G)")
         plt.title("Average Magnetic Field Strength vs # of Dilations")
@@ -615,6 +636,10 @@ class SunMask(object):
         for i in range (0, len(areas)):
             color = cmap(norm(areas[i]))
             plt.plot(x, moats[1][i], color = color)
+            # marker
+            mark_dilation = np.sqrt(areas[i] / np.pi)
+            mag_at_mark = np.interp(mark_dilation, x, moats[1][i])
+            plt.plot(mark_dilation, mag_at_mark, marker='o', color=color, markersize=7)
         plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Magnetic Field (G)")
@@ -623,13 +648,17 @@ class SunMask(object):
 
         #plot avg intensity / dilations, mu
         cmap = cm.plasma
-        norm = colors.Normalize(vmin=np.min(mus), vmax=np.max(mus))
+        norm = colors.Normalize(vmin=min(thetas), vmax=np.max(thetas))
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])
-        for i in range (0, len(mus)):
-            color = cmap(norm(mus[i]))
+        for i in range (0, len(thetas)):
+            color = cmap(norm(thetas[i]))
             plt.plot(x, moats[2][i], color = color)
-        plt.colorbar(sm, label='mu', ax=plt.gca())
+             # marker
+            mark_dilation = np.sqrt(areas[i] / np.pi)
+            int_at_mark = np.interp(mark_dilation, x, moats[2][i])
+            plt.plot(mark_dilation, int_at_mark, marker='o', color=color, markersize=7)
+        plt.colorbar(sm, label='Average Theta (rad)', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
         plt.title("Average Intensity vs # of Dilations")
@@ -643,13 +672,17 @@ class SunMask(object):
         for i in range (0, len(areas)):
             color = cmap(norm(areas[i]))
             plt.plot(x, moats[2][i], color = color)
+             # marker
+            mark_dilation = np.sqrt(areas[i] / np.pi)
+            int_at_mark = np.interp(mark_dilation, x, moats[2][i])
+            plt.plot(mark_dilation, int_at_mark, marker='o', color=color, markersize=7)
         plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
         plt.xlabel("# of Dilations")
         plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
         plt.title("Average Intensity vs # of Dilations")
         plt.show()
         
-
+        """
         """
         # get labeled region areas and perimeters (OLD WAY)
         rprops = regionprops(labels)
@@ -867,7 +900,7 @@ class SunMask(object):
     def plot_vel(self, dop, max_area_idx, structure):
 
         # set-up x axis for dilations plots
-        max_dilations = 50  # how many dilations?
+        max_dilations = 90  # how many dilations?
         dilation_arr = []   
         for i in range (1, max_dilations+1):
             dilation_arr.append(i)
@@ -901,7 +934,7 @@ class SunMask(object):
     def plot_mag(self, mag, max_area_idx, structure):
 
         # set-up x axis for dilations plots
-        max_dilations = 50  # how many dilations?
+        max_dilations = 90  # how many dilations?
         dilation_arr = []   
         for i in range (1, max_dilations+1):
             dilation_arr.append(i)
@@ -941,7 +974,7 @@ class SunMask(object):
     def plot_int(self, con, max_area_idx, structure):
         
         # set-up x axis for dilations plots
-        max_dilations = 50  # how many dilations?
+        max_dilations = 90  # how many dilations? 
         dilation_arr = []   
         for i in range (1, max_dilations+1):
             dilation_arr.append(i)
