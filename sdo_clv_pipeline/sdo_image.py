@@ -14,6 +14,7 @@ from skimage.measure import regionprops
 from astropy.wcs import FITSFixedWarning
 from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs.utils import proj_plane_pixel_scales
+from string import ascii_letters
 
 from .sdo_io import *
 from .limbdark import *
@@ -22,6 +23,7 @@ from .reproject import *
 
 warnings.simplefilter("ignore", category=VerifyWarning)
 warnings.simplefilter("ignore", category=FITSFixedWarning)
+
 
 class SDOImage(object):
     def __init__(self, file, dtype=np.float32):
@@ -521,16 +523,17 @@ class SunMask(object):
         ints = []
         areas = []
         mus =[]
-        moats = []
+        area_idx_arr = []
 
         for rprop in rprops:
             # get area of that region              
             max_area = rprop.area                 
-            if (max_area > 6000):
+            if (max_area > 10000):
                 print(max_area)
                 # get pixels in that region
                 max_area_idx = areas_pix == max_area
                 areas.append(max_area)
+                area_idx_arr.append(max_area_idx)
                 # get average mu of the region
                 mu_arr = np.array(con.mu[max_area_idx])
                 avg_mu = np.average(mu_arr)
@@ -540,7 +543,6 @@ class SunMask(object):
                 # don't double count
                 idx_new = np.logical_and(max_area_idx, self.regions != 2)
                 idx_new = np.logical_and(idx_new, self.regions != 1)
-
 
                 # plt.imshow(idx_new) 
                 # plt.colorbar()
@@ -554,310 +556,22 @@ class SunMask(object):
                 dilation_arr, avg_int_arr = SunMask.plot_int(self, con, idx_new, structure)  # x and y values for layered int plot
                 ints.append(avg_int_arr)
                 #print(avg_int_arr)
-                moats.append(vels)  # 0 
-                moats.append(mags)  # 1
-                moats.append(ints)  # 2 
-                moats.append(areas) # 3
-                moats.append(mus)   # 4
 
+        letters = []
+        for i in range (1, len(areas)):
+            label = ascii_letters[i%52]
+            letters.append(label)
         x = dilation_arr
-        np.savez('moats_data.npz', x=x, vels=vels, mags=mags, ints=ints, areas=areas, mus=mus, moats=moats)
+        
+        # moats = np.array(moats, dtype = object)
+        np.savez('moats_data.npz', x=x, vels=vels, mags=mags, ints=ints, areas=areas, mus=mus, area_idx_arr=area_idx_arr, letters=letters)
 
-        from plot_moats_data import load_and_plot
+        import sdo_clv_pipeline.plot_moats_data as plot_moats_data
+        from sdo_clv_pipeline.plot_moats_data import load_and_plot
+        
         load_and_plot('moats_data.npz')
 
-        """
-        import matplotlib.cm as cm
-        print ("trying to plot...")
-        # layered plots for different moats
-        thetas = []
-        # plot avg velocities / dilations, mu
-        for i in mus:
-            i = np.arccos(i)
-            thetas.append(i)
-        cmap = cm.plasma
-        norm = colors.Normalize(vmin=min(thetas), vmax=np.max(thetas))
-        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
-        for i in range (0, len(thetas)):
-            color = cmap(norm(thetas[i]))
-            plt.plot(x, moats[0][i], color = color)
-            # marker
-            mark_dilation = np.sqrt(areas[i] / np.pi)
-            vel_at_mark = np.interp(mark_dilation, x, moats[0][i])
-            plt.plot(mark_dilation, vel_at_mark, marker='o', color=color, markersize=7)
-        plt.colorbar(sm, label='Average Theta (rad)', ax=plt.gca())
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Velocity (m/s)")
-        plt.title("Average Velocity vs # of Dilations")
-        plt.show()
-
-        # plot avg velocities / dilations, area
-        cmap = cm.plasma
-        norm = colors.Normalize(vmin=min(areas), vmax=np.max(areas))
-        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
-        for i in range (0, len(areas)):
-            color = cmap(norm(areas[i]))
-            plt.plot(x, moats[0][i], color = color)
-            # marker
-            mark_dilation = np.sqrt(areas[i] / np.pi)
-            vel_at_mark = np.interp(mark_dilation, x, moats[0][i])
-            plt.plot(mark_dilation, vel_at_mark, marker='o', color=color, markersize=7)
-        plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Velocity (m/s)")
-        plt.title("Average Velocity vs # of Dilations")
-        plt.show()
- 
-        # plot avg magnetic field strength / dilations, mu
-        cmap = cm.plasma
-        norm = colors.Normalize(vmin=min(thetas), vmax=np.max(thetas))
-        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
-        for i in range (0, len(thetas)):
-            color = cmap(norm(thetas[i]))
-            plt.plot(x, moats[1][i], color = color)
-            # marker
-            mark_dilation = np.sqrt(areas[i] / np.pi)
-            mag_at_mark = np.interp(mark_dilation, x, moats[1][i])
-            plt.plot(mark_dilation, mag_at_mark, marker='o', color=color, markersize=7)
-        plt.colorbar(sm, label='Average Theta (rad)', ax=plt.gca())
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Magnetic Field (G)")
-        plt.title("Average Magnetic Field Strength vs # of Dilations")
-        plt.show()
-
-        # plot avg magnetic field strength / dilations, area
-        cmap = cm.plasma
-        norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
-        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
-        for i in range (0, len(areas)):
-            color = cmap(norm(areas[i]))
-            plt.plot(x, moats[1][i], color = color)
-            # marker
-            mark_dilation = np.sqrt(areas[i] / np.pi)
-            mag_at_mark = np.interp(mark_dilation, x, moats[1][i])
-            plt.plot(mark_dilation, mag_at_mark, marker='o', color=color, markersize=7)
-        plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Magnetic Field (G)")
-        plt.title("Average Magnetic Field Strength vs # of Dilations")
-        plt.show()
-
-        #plot avg intensity / dilations, mu
-        cmap = cm.plasma
-        norm = colors.Normalize(vmin=min(thetas), vmax=np.max(thetas))
-        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
-        for i in range (0, len(thetas)):
-            color = cmap(norm(thetas[i]))
-            plt.plot(x, moats[2][i], color = color)
-             # marker
-            mark_dilation = np.sqrt(areas[i] / np.pi)
-            int_at_mark = np.interp(mark_dilation, x, moats[2][i])
-            plt.plot(mark_dilation, int_at_mark, marker='o', color=color, markersize=7)
-        plt.colorbar(sm, label='Average Theta (rad)', ax=plt.gca())
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
-        plt.title("Average Intensity vs # of Dilations")
-        plt.show()
-
-        #plot avg intensity / dilations, area
-        cmap = cm.plasma
-        norm = colors.Normalize(vmin=np.min(areas), vmax=np.max(areas))
-        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-        sm.set_array([])
-        for i in range (0, len(areas)):
-            color = cmap(norm(areas[i]))
-            plt.plot(x, moats[2][i], color = color)
-             # marker
-            mark_dilation = np.sqrt(areas[i] / np.pi)
-            int_at_mark = np.interp(mark_dilation, x, moats[2][i])
-            plt.plot(mark_dilation, int_at_mark, marker='o', color=color, markersize=7)
-        plt.colorbar(sm, label='Area of Spot in Pixels', ax=plt.gca())
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
-        plt.title("Average Intensity vs # of Dilations")
-        plt.show()
-        
-        """
-        """
-        # get labeled region areas and perimeters (OLD WAY)
-        rprops = regionprops(labels)
-        areas = np.array([rprop.area for rprop in rprops]).astype(float)
-        areas *= (1e6/np.sum(self.mu > 0.0)) # convert to microhemispheres
-        perims = np.array([rprop.perimeter for rprop in rprops]).astype(float) # for each island, get perimeter as float
-
-        # area thresh is 20ppm of pixels on hemisphere
-        pix_hem = np.nansum(con.mu > 0.0)
-        area_thresh = 20e-6 * pix_hem
-
-        # assign region type to plage for ratios less than ratio thresh
-        ind6 = np.concatenate(([False], areas > area_thresh))[labels]
-        self.regions[ind6] = 6 # plage
-
-
-        # label each penumbra island and include umbra so we only expand outwards
-        binary_img = (self.regions == 2) | (self.regions == 3)|(self.regions == 1) # get penumbra and umbra 
-        structure = ndimage.generate_binary_structure(2,2) # binary structure (rank, connectivity)
-        labels, nlabels = ndimage.label(binary_img, structure=structure) # label each island of umbra and penumbra
-
-        plt.imshow(labels)
-        plt.colorbar()
-        plt.show()
-
-        # print(np.shape(ind2 | ind3))
-
-        # get labeled region areas and perimeters for umbra and penumbra
-        rprops = regionprops(labels) # get list of islands
-        areas = np.array([rprop.area for rprop in rprops]).astype(float) # get area for each island as float and put in arr
-        areas *= (1e6/np.sum(self.mu > 0.0)) # convert to microhemispheres
-        perims = np.array([rprop.perimeter for rprop in rprops]).astype(float) # get perimeter of each island
-
-        areas_array = np.concatenate(([0.0], areas))[labels] 
-        # plt.imshow(areas_array)
-        # plt.colorbar()
-        # # plt.show()
-
-        perims_array = np.concatenate(([0.0], perims))[labels]
-        # plt.imshow(perims_array)
-        # plt.colorbar()
-        # # plt.show()
-
-        # max_area = np.max(areas_array) # get the max value in the array
-        # max_area_idx = areas_array == max_area
-        '''
-
-        # investigating area and how many dilations we expect to go out
-        # print(max_area)
-        # r = np.sqrt((max_area)/pi)
-        # print(r)
-
-        """
-
-        """
-        max_area_idx = areas_array == max_area # go through areas_array and get list of indices of the pixels with the max area
-        plt.imshow(max_area_idx) 
-        plt.colorbar()
-        plt.show()
-
-        # set-up x axis for dilations plots
-        max_dilations = 50  # how many dilations?
-        dilation_arr = []   
-        for i in range (1, max_dilations+1):
-            dilation_arr.append(i)
-        '''
-
-        
-        # velocity/dilations plot inclusive
-        '''
-        # first dilation
-        dilated_idx = ndimage.binary_dilation(max_area_idx, structure = structure)
-        dilation = np.logical_xor(dilated_idx, max_area_idx) # dilated area - area = only outline left 
-        vel_arr = np.array(dop.v_corr[dilation])
-        avg_vel = np.average(vel_arr)
-        avg_vel_arr = []
-        avg_vel_arr.append(avg_vel)
-        dilation_count = 1
-
-        # y axis
-        prev_dilation = dilated_idx
-        while dilation_count < max_dilations:
-            new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
-            new_dilation = np.logical_xor(new_dilated_idx, max_area_idx) # new outline including previous dilations
-            vel_arr = np.array(dop.v_corr[new_dilation]) 
-            avg_vel = np.average(vel_arr)
-            avg_vel_arr.append(avg_vel)
-            dilation_count += 1 # update dilation count
-            prev_dilation = new_dilated_idx
-
-        print(dilation_arr) # check that numbers make sense
-        print(avg_vel_arr)
-        
-        # plot
-        x = dilation_arr
-        y = avg_vel_arr
-        plt.plot(x,y)
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Velocity (m/s)")
-        plt.title("Average Velocity vs # of Dilations")
-        plt.show()
-        '''
-
-
-        # intensity/dilations plot inclusive
-        '''
-        # first dilation
-        dilated_idx = ndimage.binary_dilation(max_area_idx, structure = structure)
-        dilation = np.logical_xor(dilated_idx, max_area_idx) # dilated area - area = only outline left 
-        int_arr = np.array(con.image[dilation])
-        avg_int = np.average(int_arr)
-        avg_int_arr = []
-        avg_int_arr.append(avg_int)
-        dilation_count = 1
-
-        # y axis
-        prev_dilation = dilated_idx
-        while dilation_count < max_dilations:
-            new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
-            new_dilation = np.logical_xor(new_dilated_idx, max_area_idx) # new outline including previous dilations
-            int_arr = np.array(con.image[new_dilation]) 
-            avg_int = np.average(int_arr)
-            avg_int_arr.append(avg_int)
-            dilation_count += 1 # update dilation count
-            prev_dilation = new_dilated_idx
-
-        print(dilation_arr) # check that numbers make sense
-        print(avg_int_arr)
-        
-        # plot
-        x = dilation_arr
-        y = avg_int_arr
-        plt.plot(x,y)
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Intensity (ergs / s / Hz / m^2)")
-        plt.title("Average Intensity vs # of Dilations")
-        plt.show()
-        '''
-
-
-        # magnetic field/dilations plot inclusive
-        '''
-        # first dilation
-        dilated_idx = ndimage.binary_dilation(max_area_idx, structure = structure)
-        dilation = np.logical_xor(dilated_idx, max_area_idx) # dilated area - area = only outline left 
-        mag_arr = np.array(mag.image[dilation])
-        avg_mag = np.average(mag_arr)
-        avg_mag_arr = []
-        avg_mag_arr.append(avg_mag)
-        dilation_count = 1
-
-        # y axis
-        prev_dilation = dilated_idx
-        while dilation_count < max_dilations:
-            new_dilated_idx = ndimage.binary_dilation(prev_dilation, structure = structure)   # dilate
-            new_dilation = np.logical_xor(new_dilated_idx, max_area_idx) # new outline including previous dilations
-            mag_arr = np.array(mag.image[new_dilation]) 
-            avg_mag = np.average(mag_arr)
-            avg_mag_arr.append(avg_mag)
-            dilation_count += 1 # update dilation count
-            prev_dilation = new_dilated_idx
-
-        print(dilation_arr) # check that numbers make sense
-        print(avg_mag_arr)
-        
-        # plot
-        x = dilation_arr
-        y = avg_mag_arr
-        plt.plot(x,y)
-        plt.xlabel("# of Dilations")
-        plt.ylabel("Average Magnetic Field (G)")
-        plt.title("Average Magnetic Field Strength vs # of Dilations")
-        plt.show()
-        '''
-"""
+       
         # set isolated bright pixels to quiet sun
         ind_iso = areas_pix == 1.0
         self.regions[ind_iso] = 4 # quiet sun
@@ -1006,4 +720,6 @@ class SunMask(object):
 
 
         return(dilation_arr, avg_int_arr)
+    
+
         
