@@ -42,6 +42,8 @@ is_network = df_vels.region == network_code
 is_plage = df_vels.region == plage_code
 is_moat = df_vels.region == moat_code
 
+pdb.set_trace()
+
 # plot it
 fig = plt.figure()
 ax1 = fig.add_subplot()

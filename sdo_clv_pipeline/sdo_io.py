@@ -32,7 +32,7 @@ def find_data(indir, globexp=""):
     mag_files, mag_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.magnetogram.fits")))
     dop_files, dop_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.Dopplergram.fits")))
     #aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia.lev1.1700A_{globexp}*T*.image_lev1*")))
-    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*t*.image_lev1*")))
+    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*")))
     print(aia_dates)
     #aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
 
@@ -85,7 +85,10 @@ def get_date(f):
     if "720s" in f:
         return round_time(date=dt.datetime.strptime(s, "%Y%m%d_%H%M%S"))
     else:
-        return round_time(date=dt.datetime.strptime(s, "%Y_%m_%d_%H_%M_%S"))
+        try: 
+            return round_time(date=dt.datetime.strptime(s, "%Y_%m_%d_%H_%M_%S"))
+        except:
+            return round_time(date=dt.datetime.strptime(s, "%Y_%m_%dt%H_%M_%S"))
     return None
 
 def get_dates(files):
