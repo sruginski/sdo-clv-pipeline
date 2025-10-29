@@ -126,11 +126,13 @@ def process_data_set(con_file, mag_file, dop_file, aia_file,
                 create_file(file)
 
     # reduce the data set
-    try:
-        con, mag, dop, aia, mask = reduce_sdo_images(con_file, mag_file, dop_file, aia_file, **kwargs)
-    except:
-        print("\t >>> Epoch %s reduction failed for unknown reasons :(" % iso, flush=True)
-        return None
+    # try:
+    #     con, mag, dop, aia, mask = reduce_sdo_images(con_file, mag_file, dop_file, aia_file, **kwargs)
+    # except:
+    #     print("\t >>> Epoch %s reduction failed for unknown reasons :(" % iso, flush=True)
+    #     return None
+
+    con, mag, dop, aia, mask = reduce_sdo_images(con_file, mag_file, dop_file, aia_file, **kwargs)
 
     # get the MJD of the obs
     mjd = Time(con.date_obs).mjd

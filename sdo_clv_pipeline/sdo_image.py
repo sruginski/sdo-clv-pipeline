@@ -460,7 +460,7 @@ class SunMask(object):
         # self.lon = np.copy(other_image.lon)
         return None
 
-    def identify_regions(self, con, mag, dop, aia, plot_moat=False, classify_moat=False):
+    def identify_regions(self, con, mag, dop, aia, plot_moat=True, classify_moat=True):
         invalid_mask = np.logical_or(con.mu <= con.mu_thresh, np.isnan(con.mu))
 
         # allocate memory for mask array
@@ -570,7 +570,7 @@ class SunMask(object):
             right_moat_pixels = np.zeros_like(self.regions, dtype=bool)
 
             # collect areas and centroids
-            area_thresh = 600
+            area_thresh = 600  # TODO: revisit this threshold
             rprops_tab = regionprops_table(labels, properties=("label","area","centroid"))  
             areas = np.array(rprops_tab["area"])
             x_centroids = np.array((rprops_tab["centroid-1"][areas > area_thresh])).astype(int)
@@ -662,9 +662,14 @@ class SunMask(object):
             overlapping = np.any(np.logical_and(moats, collision_map), axis=(1, 2))
             redo_idxs = np.nonzero(overlapping)[0]
 
+            # 1 = complex, 0 = simple
+            moat_types = np.zeros(len(areas), dtype=int)
+            moat_types[redo_idxs] = 1
+
             # iterate again over regions which overlap
             for idx in redo_idxs:
                 dilate_moat(idx, 0.65, compute_avgs=False)
+            #TODO: add variable to differentiate between simple and complex moats, color them differently in plot 
 
             # get average theta
             avg_theta = np.arccos(avg_mu)
@@ -697,11 +702,11 @@ class SunMask(object):
                     os.mkdir(moat_path)
 
                 # write it out
-                iso = get_date(con.filename).isoformat()
+                iso = get_date(con.filename).isoformat().replace(":", "-")
                 fname = os.path.join(moat_path, f"moats_data_{iso}.npz")
                 np.savez_compressed(fname, x=max_rings, vels=vels, mags=mags, ints=ints, 
                                     areas=areas, mus=avg_mu, area_idx_arr=area_idx_arr, 
-                                    letters=letters, dilated_spots=moats)
+                                    letters=letters, dilated_spots=moats, types=moat_types)
             
             # print("before plotting")
             # TODO this needs to be checked

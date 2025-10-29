@@ -15,6 +15,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 
 def plot_image(sdo_image, outdir=None, fname=None):
+
     # get the WCS
     wcs = sdo_image.wcs
 

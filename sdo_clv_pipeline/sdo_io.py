@@ -25,16 +25,26 @@ def read_data(file, dtype=np.float32):
 
 # function to glob the input data
 def find_data(indir, globexp=""):
+
     # find the data
     con_files, con_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.continuum.fits")))
+    print(con_dates)
     mag_files, mag_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.magnetogram.fits")))
     dop_files, dop_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.Dopplergram.fits")))
-    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*t*_image_lev1*")))
-    # aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
+    #aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia.lev1.1700A_{globexp}*T*.image_lev1*")))
+    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*t*.image_lev1*")))
+    print(aia_dates)
+    #aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
+
+    print("Found files:")
+    print("   CON:", len(con_files))
+    print("   MAG:", len(mag_files))
+    print("   DOP:", len(dop_files))
+    print("   AIA:", len(aia_files))
 
     # find datetimes that are in *all* lists
     common_dates = list(set.intersection(*map(set, [con_dates, mag_dates, dop_dates, aia_dates])))
-    # print(common_dates)
+    print(common_dates)
 
     # remove epochs that are missing in any data set from all data sets
     con_files = [con_files[idx] for idx, date in enumerate(con_dates) if date in common_dates]
@@ -50,10 +60,15 @@ def find_data(indir, globexp=""):
 
     return con_files, mag_files, dop_files, aia_files
 
+
 def sort_data(f_list):
     # sort, and only take unique dates
     dates, inds = np.unique(get_dates(f_list), return_index=True)
     return [f_list[i] for i in inds], dates
+
+# def sort_data(f_list):
+#     dates = get_dates(f_list)
+#     return f_list, dates
 
 def get_date(f):
     if "aia" in f:
@@ -65,7 +80,7 @@ def get_date(f):
 
     # standardize time formats
     s = s.group()
-    s = s.replace("t", "_")
+    s = s.replace("T", "_")
 
     if "720s" in f:
         return round_time(date=dt.datetime.strptime(s, "%Y%m%d_%H%M%S"))
