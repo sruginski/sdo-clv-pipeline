@@ -669,7 +669,6 @@ class SunMask(object):
             # iterate again over regions which overlap
             for idx in redo_idxs:
                 dilate_moat(idx, 0.65, compute_avgs=False)
-            #TODO: add variable to differentiate between simple and complex moats, color them differently in plot 
 
             # get average theta
             avg_theta = np.arccos(avg_mu)
