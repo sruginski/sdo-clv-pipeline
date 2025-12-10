@@ -5,5 +5,5 @@ data_dir = os.path.abspath(os.path.join(os.getcwd(), "..", "data"))
 # data_dir = os.path.abspath("/mnt/ceph/users/mpalumbo/new_sdo_data")
 print(data_dir)
 download_data(series="720", email="mlp95@psu.edu", outdir=data_dir, 
-              start="2014/01/15", end="2014/01/15", 
-              sample=24, overwrite=False, progress=True)
+              start="2014/01/01", end="2016/12/31", 
+              sample=336, overwrite=False, progress=True)

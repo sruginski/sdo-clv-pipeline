@@ -28,13 +28,22 @@ def find_data(indir, globexp=""):
 
     # find the data
     con_files, con_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.continuum.fits")))
-    print(con_dates)
+    # print(con_dates)
+    
     mag_files, mag_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.magnetogram.fits")))
+    
     dop_files, dop_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.Dopplergram.fits")))
-    #aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia.lev1.1700A_{globexp}*T*.image_lev1*")))
-    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*")))
-    print(aia_dates)
-    #aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
+    
+    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia.lev1.1700A_{globexp}*T*.image_lev1*")))
+    # aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*")))
+    
+    #print(aia_dates)
+    # aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
+
+    from pathlib import Path
+
+    indir = Path(indir)  # ensure pathlib object
+    g = globexp.replace("_", "")
 
     print("Found files:")
     print("   CON:", len(con_files))
@@ -72,7 +81,7 @@ def sort_data(f_list):
 
 def get_date(f):
     if "aia" in f:
-        s = re.search(r'\d{4}_\d{2}_\d{2}t\d{2}_\d{2}_\d{2}', f)
+        s = re.search(r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}', f)
     elif "720s" in f:
         s = re.search(r'\d{4}\d{2}\d{2}_\d{2}\d{2}\d{2}', f)
     else:

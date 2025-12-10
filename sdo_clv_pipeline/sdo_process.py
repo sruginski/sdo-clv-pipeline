@@ -89,13 +89,6 @@ def reduce_sdo_images(con_file, mag_file, dop_file, aia_file, mu_thresh=0.1, fit
     return con, mag, dop, aia, mask
 
 
-def process_data_set_parallel(con_file, mag_file, dop_file, aia_file, mu_thresh, n_rings, datadir):
-    process_data_set(con_file, mag_file, dop_file, aia_file,
-                     mu_thresh=mu_thresh, n_rings=n_rings,
-                     suffix=str(mp.current_process().pid), datadir=datadir,
-                     plot_moat=False, classify_moat=False)
-    return None
-
 def process_data_set(con_file, mag_file, dop_file, aia_file, 
                      mu_thresh, n_rings=10, suffix=None, 
                      datadir=None, **kwargs):
@@ -116,6 +109,9 @@ def process_data_set(con_file, mag_file, dop_file, aia_file,
         # make tmp directory
         tmpdir = os.path.join(datadir, "tmp")
 
+        if not os.path.exists(tmpdir):
+            os.makedirs(tmpdir)
+
         # filenames
         fname1 = os.path.join(tmpdir, "thresholds_" + suffix + ".csv")
         fname2 = os.path.join(tmpdir, "region_output_" + suffix + ".csv")
@@ -126,13 +122,15 @@ def process_data_set(con_file, mag_file, dop_file, aia_file,
                 create_file(file)
 
     # reduce the data set
-    # try:
-    #     con, mag, dop, aia, mask = reduce_sdo_images(con_file, mag_file, dop_file, aia_file, **kwargs)
-    # except:
-    #     print("\t >>> Epoch %s reduction failed for unknown reasons :(" % iso, flush=True)
-    #     return None
+    reduction_result = reduce_sdo_images(con_file, mag_file, dop_file, aia_file, **kwargs)
 
-    con, mag, dop, aia, mask = reduce_sdo_images(con_file, mag_file, dop_file, aia_file, **kwargs)
+    # CHECK: If reduction failed (returned None), exit early
+    if reduction_result is None:
+        print("\t >>> Epoch %s reduction returned None. Skipping." % iso, flush=True)
+        return None
+
+    # Safe to unpack now
+    con, mag, dop, aia, mask = reduction_result
 
     # get the MJD of the obs
     mjd = Time(con.date_obs).mjd
@@ -209,8 +207,10 @@ def process_data_set(con_file, mag_file, dop_file, aia_file,
     # end the timer
     end_time = time.perf_counter()
 
-    end_time = time.perf_counter()
+    # # report success and return
+    # print("\t >>> Run successfully in %s seconds" % str(end_time - start_time), flush=True)
+    # return None
 
     # report success and return
     print("\t >>> Run successfully in %s seconds" % str(end_time - start_time), flush=True)
-    return None
+    return mask
