@@ -84,7 +84,7 @@ def load_and_plot(moat_file):
                 # only keep points before the marker
                 x_plot = np.array(x[i])
                 y_plot = np.array(moats_data)
-                mask = x_plot <= 1.4*mark_dilation
+                mask = x_plot <= mark_dilation
                 x_plot_trunc = x_plot[mask]
                 y_plot_trunc = y_plot[mask]
 
@@ -145,7 +145,7 @@ def load_and_plot(moat_file):
                 # only keep points before the marker
                 x_plot = np.array(x[i])
                 y_plot = np.array(moats_data)
-                mask = (x_plot > 0) & (y_plot > 0) & (x_plot <= 1.4*mark_dilation)
+                mask = (x_plot > 0) & (y_plot > 0) & (x_plot <= mark_dilation)
                 x_plot_trunc = x_plot[mask]
                 y_plot_trunc = y_plot[mask]
 
