@@ -34,11 +34,13 @@ def find_data(indir, globexp=""):
     
     dop_files, dop_dates = sort_data(glob.glob(os.path.join(indir, f"hmi.*.{globexp}*.Dopplergram.fits")))
     
-    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia.lev1.1700A_{globexp}*T*.image_lev1*")))
-    # aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*")))
+    #aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia.lev1.1700A_{globexp}*T*.image_lev1*")))
+    #aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*t*_image_lev1*")))
+    #aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*t*_image_lev1*")))
+    aia_files, aia_dates = sort_data(glob.glob(os.path.join(indir, f"aia_lev1_1700a_{globexp}*t*_image_lev1*.fits")))
     
     #print(aia_dates)
-    # aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
+    #aia_files, aia_dates = sort_data(glob.glob(indir + "*aia*" + globexp + ".fits"))
 
     from pathlib import Path
 
@@ -80,24 +82,44 @@ def sort_data(f_list):
 #     return f_list, dates
 
 def get_date(f):
+    # if "aia" in f:
+    #     #s = re.search(r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}', f)
+    #     s = re.search(r"aia_lev1_1700a_(\d{4}_\d{2}_\d{2})t(\d{2}_\d{2}_\d{2})", f)
+    # elif "720s" in f:
+    #     s = re.search(r'\d{4}\d{2}\d{2}_\d{2}\d{2}\d{2}', f)
+    # else:
+    #     s = re.search(r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}', f)
+
+    # # standardize time formats
+    # s = s.group()
+    # s = s.replace("T", "_")
+
+    # if "720s" in f:
+    #     return round_time(date=dt.datetime.strptime(s, "%Y%m%d_%H%M%S"))
+    # else:
+    #     try: 
+    #         return round_time(date=dt.datetime.strptime(s, "%Y_%m_%d_%H_%M_%S"))
+    #     except:
+    #         return round_time(date=dt.datetime.strptime(s, "%Y_%m_%dt%H_%M_%S"))
+
     if "aia" in f:
-        s = re.search(r'\d{4}_\d{2}_\d{2}T\d{2}_\d{2}_\d{2}', f)
+        s = re.search(r"aia_lev1_1700a_(\d{4}_\d{2}_\d{2})t(\d{2}_\d{2}_\d{2})", f)
+        if not s:
+            raise ValueError(f"AIA filename format not recognized: {f}")
+        date_str = s.group(1) + "_" + s.group(2)
+        return round_time(date=dt.datetime.strptime(date_str, "%Y_%m_%d_%H_%M_%S"))
+
     elif "720s" in f:
-        s = re.search(r'\d{4}\d{2}\d{2}_\d{2}\d{2}\d{2}', f)
+        s = re.search(r'\d{8}_\d{6}', f)
+        if not s:
+            raise ValueError(f"HMI 720s filename format not recognized: {f}")
+        return round_time(date=dt.datetime.strptime(s.group(), "%Y%m%d_%H%M%S"))
+
     else:
         s = re.search(r'\d{4}_\d{2}_\d{2}_\d{2}_\d{2}_\d{2}', f)
-
-    # standardize time formats
-    s = s.group()
-    s = s.replace("T", "_")
-
-    if "720s" in f:
-        return round_time(date=dt.datetime.strptime(s, "%Y%m%d_%H%M%S"))
-    else:
-        try: 
-            return round_time(date=dt.datetime.strptime(s, "%Y_%m_%d_%H_%M_%S"))
-        except:
-            return round_time(date=dt.datetime.strptime(s, "%Y_%m_%dt%H_%M_%S"))
+        if not s:
+            raise ValueError(f"HMI filename format not recognized: {f}")
+        return round_time(date=dt.datetime.strptime(s.group(), "%Y_%m_%d_%H_%M_%S"))
     return None
 
 def get_dates(files):
