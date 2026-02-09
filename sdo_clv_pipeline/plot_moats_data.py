@@ -117,45 +117,6 @@ def load_and_plot(moat_file):
                 x_data = np.array(x[i])
                 y_data = np.array(moats_data)
 
-                # new plot, chi-square plot for this curve
-                if len(x_fit_data) >= 3:
-                    chi2_vals = []
-                    n_vals = []
-
-
-                    for k in range(3, len(x_fit_data) + 1):
-                        x_sub = x_fit_data[:k]
-                        y_sub = y_fit_data[:k]
-
-
-                        try:
-                            popt, _ = curve_fit(power_law, x_sub, y_sub, p0=[1, -1])
-                            y_model = power_law(x_sub, *popt)
-
-
-                            chi2 = np.mean(((y_sub - y_model) / y_model)**2)
-
-
-                            chi2_vals.append(chi2)
-                            n_vals.append(k)
-
-
-                        except RuntimeError:
-                            continue
-
-
-                    if len(n_vals) > 0:
-                        plt.figure(figsize=(5, 4))
-                        plt.plot(n_vals, chi2_vals, marker='o')
-                        plt.xlabel("Number of Points in Fit")
-                        plt.ylabel("Reduced Chi-Square")
-                        plt.title(f"Cumulative Fit Quality for Moat {i}")
-                        plt.yscale("log")
-                        plt.gca().invert_yaxis()
-                        plt.tight_layout()
-                        plt.show()
-                        
-                ###
 
                 valid = (x_data > 0) & (y_data > 0) & (x_data <= mark_dilation)
                 x_fit_data = x_data[valid]
@@ -230,6 +191,47 @@ def load_and_plot(moat_file):
                 valid = (x_data > 0) & (y_data > 0) & (x_data <= mark_dilation)
                 x_fit_data = x_data[valid]
                 y_fit_data = y_data[valid]
+
+                # new plot, chi-square plot for this curve
+                if len(x_fit_data) >= 3:
+                    chi2_vals = []
+                    n_vals = []
+
+
+                    for k in range(3, len(x_fit_data) + 1):
+                        x_sub = x_fit_data[:k]
+                        y_sub = y_fit_data[:k]
+
+
+                        try:
+                            popt, _ = curve_fit(power_law, x_sub, y_sub, p0=[1, -1])
+                            y_model = power_law(x_sub, *popt)
+
+
+                            chi2 = np.mean(((y_sub - y_model) / y_model)**2)
+
+
+                            chi2_vals.append(chi2)
+                            n_vals.append(k)
+
+
+                        except RuntimeError:
+                            continue
+
+
+                    if len(n_vals) > 0:
+                        plt.figure(figsize=(5, 4))
+                        plt.plot(n_vals, chi2_vals, marker='o')
+                        plt.xlabel("Number of Points in Fit")
+                        plt.ylabel("Reduced Chi-Square")
+                        plt.title(f"Cumulative Fit Quality for Moat {i}")
+                        plt.yscale("log")
+                        plt.gca().invert_yaxis()
+                        plt.tight_layout()
+                        plt.show()
+
+
+                ###
 
 
                 if len(x_plot_trunc) >= 2:
@@ -354,3 +356,6 @@ def plot_final_histograms():
 if __name__ == '__main__':
     # load_and_plot()
     plot_loop()
+   
+
+
