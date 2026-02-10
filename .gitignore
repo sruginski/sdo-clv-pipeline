@@ -1,0 +1,19 @@
+# file types
+*.DS_STORE
+*.pyc
+*egg-info*
+*.fits
+uv.lock
+*.npz
+*.png
+*.csv
+
+# directories
+data/*
+figures/*
+build/*
+
+# other
+__pycache__
+sftp-config.json
+uv.lock
